@@ -1,0 +1,39 @@
+{
+  "name": "@seeed-studio/openclaw-reachy",
+  "version": "0.3.0",
+  "description": "OpenClaw plugin for Reachy robots — WebSocket bridge with emotion, voice, and hardware control",
+  "keywords": [
+    "embodied-ai",
+    "emotion",
+    "openclaw",
+    "reachy",
+    "robot",
+    "voice-assistant",
+    "websocket"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48",
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "desktop-robot",
+      "label": "Reachy",
+      "selectionLabel": "Reachy (WebSocket Robot)",
+      "blurb": "WebSocket bridge for Reachy robots with emotion, voice, and hardware control.",
+      "aliases": ["reachy"],
+      "order": 90
+    },
+    "install": {
+      "npmSpec": "@seeed-studio/openclaw-reachy",
+      "localPath": "extensions/desktop-robot",
+      "defaultChoice": "npm"
+    }
+  }
+}
