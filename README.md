@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="banner.png" alt="openclaw-reachy banner" width="800" />
+</p>
+
 # openclaw-reachy
 
 [![npm](https://img.shields.io/npm/v/@seeed-studio/openclaw-reachy)](https://www.npmjs.com/package/@seeed-studio/openclaw-reachy)
