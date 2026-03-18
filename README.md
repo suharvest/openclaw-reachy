@@ -1,22 +1,43 @@
 # openclaw-reachy
 
-OpenClaw channel plugin for Reachy robots — WebSocket bridge with emotion, voice, and hardware control.
+[![npm](https://img.shields.io/npm/v/@seeed-studio/openclaw-reachy)](https://www.npmjs.com/package/@seeed-studio/openclaw-reachy)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![OpenClaw Plugin](https://img.shields.io/badge/OpenClaw-plugin-blue)](https://github.com/openclaw/openclaw)
 
-STT (speech-to-text) and TTS (text-to-speech) are handled client-side. This plugin provides:
+OpenClaw plugin that turns [Reachy Mini](https://www.pollen-robotics.com/reachy-mini/) into a conversational AI companion.
 
-- A WebSocket server that accepts connections from Reachy robot clients
-- Streaming text responses with chunked delivery (TTS-friendly)
-- Emotion channel — the AI expresses emotions (happy, thinking, etc.) alongside text
-- Robot command forwarding — tool calls are forwarded to the client for SDK-level hardware execution
-- Background task delegation via `sessions_spawn` for non-trivial work
-- Task completion notifications with result preview for voice briefings
-- Session state machine (idle → listening → processing → speaking)
-- Idle timeout sweep (configurable, default 30 min)
-- Token-based auth (timing-safe comparison) or anonymous access
+<!-- TODO: Add demo GIF here — 15s clip showing: user speaks → robot thinks (emotion) → robot replies + moves -->
+
+## What is this?
+
+openclaw-reachy bridges any LLM (via [OpenClaw](https://github.com/openclaw/openclaw)) to a Reachy Mini robot over WebSocket. The robot listens (STT is client-side), the AI thinks and responds with streaming text for TTS, and the plugin adds an **emotion channel** — the AI's emotional state (happy, thinking, curious...) drives the robot's facial expression in real-time, independently from speech. Hardware commands like head movement and dances are forwarded as tool calls.
+
+## Key Features
+
+- **Emotion channel** — AI emotions (`[emotion:happy]`) are extracted from the text stream and sent as separate messages, so the robot reacts before TTS finishes
+- **Streaming text for TTS** — chunked delivery with configurable min-chars and flush interval, optimized for real-time speech synthesis
+- **Robot command forwarding** — `reachy_*` tool calls (move head, dance, capture image) are sent as `robot_command` messages for client-side SDK execution
+- **Background task delegation** — complex work is handed off to sub-agents; the robot acknowledges immediately and delivers results when ready
+- **Auto-loaded tool schemas** — define robot tools in a single `SKILL.md` file; the plugin parses it into JSON schemas at startup
+
+## Table of Contents
+
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [Configuration](#configuration)
+- [WebSocket Protocol](#websocket-protocol)
+- [Emotion Channel](#emotion-channel)
+- [Robot Commands](#robot-commands)
+- [Typical Flow](#typical-flow)
+- [Authentication](#authentication)
+- [State Machine](#state-machine)
+- [Auto-loading Tools from SKILL.md](#auto-loading-tools-from-skillmd)
+- [Source Structure](#source-structure)
+- [Contributing](#contributing)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
 ## Install
-
-From npm:
 
 ```bash
 openclaw plugins install @seeed-studio/openclaw-reachy
@@ -29,10 +50,37 @@ openclaw setup
 # select Reachy and follow the prompts
 ```
 
-Start the gateway, then connect via WebSocket:
+## Quickstart
 
-```
-ws://127.0.0.1:18790/desktop-robot
+Start the OpenClaw gateway, then connect via WebSocket:
+
+```javascript
+// Node.js / browser WebSocket client example
+const ws = new WebSocket("ws://127.0.0.1:18790/desktop-robot");
+
+ws.onopen = () => {
+  // 1. Start a session
+  ws.send(JSON.stringify({ type: "hello" }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  switch (msg.type) {
+    case "welcome":
+      // 2. Session established — send a message
+      ws.send(JSON.stringify({ type: "message", text: "Hello!" }));
+      break;
+    case "emotion":
+      console.log("Robot emotion:", msg.emotion); // e.g. "happy"
+      break;
+    case "stream_delta":
+      console.log("TTS chunk:", msg.text); // feed to TTS engine
+      break;
+    case "robot_command":
+      console.log("Execute:", msg.action, msg.params); // e.g. "move_head" {yaw: 20}
+      break;
+  }
+};
 ```
 
 ## Configuration
@@ -73,7 +121,7 @@ All fields are optional. Shown with defaults:
 }
 ```
 
-## WebSocket protocol
+## WebSocket Protocol
 
 All messages are JSON. Each has a `type` field.
 
@@ -107,13 +155,13 @@ All messages are JSON. Each has a `type` field.
 | `error`          | `message`, `code?`                       | Error.                                                                          |
 | `pong`           | `ts?`                                    | Reply to `ping`.                                                                |
 
-## Emotion channel
+## Emotion Channel
 
 The AI includes an emotion tag at the start of each reply (e.g. `[emotion:happy]`). The plugin strips the tag from the text stream and sends a separate `emotion` message so the client can update the robot's facial expression independently from TTS.
 
 Available emotions: `happy`, `sad`, `angry`, `surprised`, `thinking`, `confused`, `curious`, `excited`, `laugh`, `fear`, `neutral`, `listening`, `agreeing`, `disagreeing`.
 
-```
+```text
 Client                          Server
   │                               │
   │──── message {text} ─────────▶│
@@ -122,13 +170,13 @@ Client                          Server
   │◀─── stream_end ─────────────│
 ```
 
-## Robot commands
+## Robot Commands
 
 When the AI invokes a tool prefixed with `reachy_` (e.g. `reachy_move_head`, `reachy_dance`), the plugin forwards it as a `robot_command` message for client-side SDK execution. The client executes the command via its local robot SDK and optionally reports the result via `robot_result`.
 
 Tool schemas are auto-registered from `SKILL.md` at startup — see [Auto-loading tools from SKILL.md](#auto-loading-tools-from-skillmd).
 
-```
+```text
 Client                          Server
   │                               │
   │◀─── robot_command ───────────│  action="move_head", params={yaw:20}, commandId="abc"
@@ -148,9 +196,9 @@ To enable robot tools, add the tool names to the `tools` allowlist:
 }
 ```
 
-## Typical flow
+## Typical Flow
 
-```
+```text
 Client                          Server
   │                               │
   │──── hello ──────────────────▶│
@@ -168,11 +216,11 @@ Client                          Server
   │◀─── state {idle} ───────────│
 ```
 
-### Background task flow
+### Background Task Flow
 
 For complex tasks (search, code generation, analysis), the AI delegates to a background sub-agent:
 
-```
+```text
 Client                          Server
   │                               │
   │──── message {complex task} ─▶│
@@ -196,9 +244,9 @@ If `auth.token` is set and `auth.allowAnonymous` is false, clients must authenti
 
 Token comparison uses `crypto.timingSafeEqual` to prevent timing attacks.
 
-## State machine
+## State Machine
 
-```
+```text
 idle ──▶ listening ──▶ processing ──▶ speaking
   ▲                                      │
   └──────────────────────────────────────┘
@@ -208,9 +256,9 @@ idle ──▶ listening ──▶ processing ──▶ speaking
   any ──────▶ idle          (recovery path)
 ```
 
-## Auto-loading tools from SKILL.md
+## Auto-loading Tools from SKILL.md
 
-Place a `SKILL.md` file in the extension root (`extensions/desktop-robot/SKILL.md`) and the plugin will automatically parse it and register tools with proper JSON schemas at startup. This means you maintain a single file — the LLM gets real function-call schemas, and the robot client receives `robot_command` messages.
+Place a `SKILL.md` file in the extension root and the plugin will automatically parse it and register tools with proper JSON schemas at startup. This means you maintain a single file — the LLM gets real function-call schemas, and the robot client receives `robot_command` messages.
 
 Expected format:
 
@@ -231,9 +279,9 @@ Supported parameter types: `float`/`number`, `int`/`integer`, `bool`/`boolean`, 
 
 Tools without parameters are also supported (e.g. `reachy_status`).
 
-## Source structure
+## Source Structure
 
-```
+```text
 ├── index.ts              # Plugin entry: registers channel + subagent hooks + tools
 ├── SKILL.md              # Robot tool definitions (auto-parsed at startup)
 ├── package.json
@@ -257,3 +305,17 @@ Tools without parameters are also supported (e.g. `reachy_status`).
     ├── stream-relay.ts   # Chunked streaming relay + emotion extraction
     └── subagent-hooks.ts # task_spawned / task_completed WS events
 ```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request or open an Issue.
+
+## Acknowledgements
+
+- [OpenClaw](https://github.com/openclaw/openclaw) — the AI gateway that powers the LLM backend
+- [Reachy Mini](https://www.pollen-robotics.com/reachy-mini/) by [Pollen Robotics](https://www.pollen-robotics.com/) x [Hugging Face](https://huggingface.co/) — the robot hardware platform
+- Built by [Seeed Studio](https://www.seeedstudio.com/)
+
+## License
+
+[MIT](LICENSE)
