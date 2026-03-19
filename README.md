@@ -8,21 +8,24 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![OpenClaw Plugin](https://img.shields.io/badge/OpenClaw-plugin-blue)](https://github.com/openclaw/openclaw)
 
-OpenClaw plugin that turns [Reachy Mini](https://www.pollen-robotics.com/reachy-mini/) into a conversational AI companion.
+OpenClaw plugin layer that connects OpenClaw to [Reachy Mini](https://www.pollen-robotics.com/reachy-mini/), turning AI responses, emotions, and tool calls into real-time robot behavior.
 
 <!-- TODO: Add demo GIF here — 15s clip showing: user speaks → robot thinks (emotion) → robot replies + moves -->
 
+
 ## What is this?
 
-openclaw-reachy bridges any LLM (via [OpenClaw](https://github.com/openclaw/openclaw)) to a Reachy Mini robot over WebSocket. The robot listens (STT is client-side), the AI thinks and responds with streaming text for TTS, and the plugin adds an **emotion channel** — the AI's emotional state (happy, thinking, curious...) drives the robot's facial expression in real-time, independently from speech. Hardware commands like head movement and dances are forwarded as tool calls.
+openclaw-reachy is the plugin layer that connects [OpenClaw](https://github.com/openclaw/openclaw) to Reachy Mini, turning AI responses, emotions, and tool calls into real-time robot behavior.
+
+It enables Reachy Mini to become a physical expression layer for OpenClaw — not just speaking AI output, but also showing emotion and executing robot actions in sync.
 
 ## Key Features
 
-- **Emotion channel** — AI emotions (`[emotion:happy]`) are extracted from the text stream and sent as separate messages, so the robot reacts before TTS finishes
-- **Streaming text for TTS** — chunked delivery with configurable min-chars and flush interval, optimized for real-time speech synthesis
-- **Robot command forwarding** — `reachy_*` tool calls (move head, dance, capture image) are sent as `robot_command` messages for client-side SDK execution
-- **Background task delegation** — complex work is handed off to sub-agents; the robot acknowledges immediately and delivers results when ready
-- **Auto-loaded tool schemas** — define robot tools in a single `SKILL.md` file; the plugin parses it into JSON schemas at startup
+- **Real-time robot expression** — AI responses can be turned into speech, motion, and emotion in sync, making interaction feel more natural and alive.
+- **Emotion channel** — emotional states are sent separately from speech, so Reachy Mini can react with facial expressions and behavior in real time.
+- **Tool-driven robot actions** — OpenClaw tool calls can trigger physical actions such as head movement, gestures, or other robot behaviors.
+- **Streaming voice interaction** — streaming text delivery helps reduce response delay and supports more fluid voice experiences.
+- **Built for OpenClaw workflows** — this plugin helps bring OpenClaw out of the screen and into a physical robot experience.
 
 ## Table of Contents
 
