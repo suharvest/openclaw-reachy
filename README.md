@@ -1,5 +1,5 @@
 <p align="center">
-  <video src="https://github.com/suharvest/openclaw-reachy/releases/download/media-assets/demo.mp4" alt="openclaw-reachy demo" width="800" controls autoplay loop muted></video>
+  <img src="demo.gif" alt="openclaw-reachy demo" width="360" />
 </p>
 
 # openclaw-reachy
